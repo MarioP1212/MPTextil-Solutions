@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MPTextil.Api/MPTextil.Api.csproj" />
+    <Project Path="src/MPTextil.Application/MPTextil.Application.csproj" />
+    <Project Path="src/MPTextil.Domain/MPTextil.Domain.csproj" />
+    <Project Path="src/MPTextil.Infrastructure/MPTextil.Infrastructure.csproj" />
+    <Project Path="src/MPTextil.Web/MPTextil.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MPTextil.Tests.Integracion/MPTextil.Tests.Integracion.csproj" />
+    <Project Path="tests/MPTextil.Tests/MPTextil.Tests.csproj" />
+  </Folder>
+</Solution>

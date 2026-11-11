@@ -1,0 +1,132 @@
+@page "/solicitudes/nueva"
+@attribute [Authorize(Roles = "Solicitante")]
+@inject ApiSolicitudes ApiSolicitudes
+@inject ApiCatalogos Catalogos
+@inject NavigationManager Navegacion
+@inject ISnackbar Notificaciones
+
+<PageTitle>Nueva solicitud · MPTextil Solutions</PageTitle>
+
+<MudButton Href="/solicitudes" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2">Volver a solicitudes</MudButton>
+<MudText Typo="Typo.h4">Nueva solicitud</MudText>
+<MudText Typo="Typo.body2" Class="mb-6 mud-text-secondary">Describe el material que necesitas desarrollar. Un coordinador la asignará a un proveedor.</MudText>
+
+<MudPaper Class="pa-6" MaxWidth="760px">
+    <MensajeError Mensaje="@MensajeGeneral" Class="mb-4" />
+
+    <EditForm Model="_formulario" OnSubmit="CrearAsync">
+        <MudGrid Spacing="3">
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_formulario.NombreMaterial" @bind-Value:after="LimpiarErrores"
+                              Label="Nombre del material"
+                              Placeholder="Ejemplo: Jersey 180 g/m² algodón"
+                              Variant="Variant.Outlined"
+                              Counter="150"
+                              MaxLength="150"
+                              Error="@Tiene("NombreMaterial")"
+                              ErrorText="@ErrorDe("NombreMaterial")" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudSelect T="int" @bind-Value="_formulario.TipoMaterialId" @bind-Value:after="LimpiarErrores" Label="Tipo de material" Variant="Variant.Outlined"
+                           Error="@Tiene("TipoMaterialId")" ErrorText="@ErrorDe("TipoMaterialId")">
+                    @foreach (var tipo in _tipos)
+                    {
+                        <MudSelectItem T="int" Value="tipo.Id">@tipo.Nombre</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudSelect T="Prioridad?" @bind-Value="_formulario.Prioridad" @bind-Value:after="LimpiarErrores" Label="Prioridad" Variant="Variant.Outlined"
+                           Error="@Tiene("Prioridad")" ErrorText="@ErrorDe("Prioridad")">
+                    @foreach (var prioridad in _prioridades)
+                    {
+                        <MudSelectItem T="Prioridad?" Value="APrioridad(prioridad.Valor)">@prioridad.Nombre</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudDatePicker @bind-Date="_formulario.FechaObjetivo" @bind-Date:after="LimpiarErrores"
+                               Label="Fecha objetivo"
+                               MinDate="DateTime.Today"
+                               DateFormat="dd/MM/yyyy"
+                               Variant="Variant.Outlined"
+                               Error="@Tiene("FechaObjetivo")"
+                               ErrorText="@ErrorDe("FechaObjetivo")" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_formulario.Descripcion" @bind-Value:after="LimpiarErrores"
+                              Label="Descripción"
+                              Placeholder="Composición, color, uso de la prenda y cualquier detalle que ayude al proveedor."
+                              Variant="Variant.Outlined"
+                              Lines="4"
+                              Counter="1000"
+                              MaxLength="1000"
+                              Error="@Tiene("Descripcion")"
+                              ErrorText="@ErrorDe("Descripcion")" />
+            </MudItem>
+            <MudItem xs="12" Class="d-flex justify-end gap-2">
+                <MudButton Href="/solicitudes" Variant="Variant.Text">Cancelar</MudButton>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Send" Disabled="_procesando">
+                    @(_procesando ? "Creando…" : "Crear solicitud")
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </EditForm>
+</MudPaper>
+
+@code {
+    private readonly FormularioSolicitud _formulario = new();
+    private List<ElementoCatalogo> _tipos = [];
+    private List<OpcionCatalogo> _prioridades = [];
+    private ResultadoApi<RespuestaAccion>? _resultado;
+    private string? _errorCatalogos;
+    private bool _procesando;
+
+    private string? MensajeGeneral => _errorCatalogos ?? (_resultado is { Exito: false } resultado ? resultado.Mensaje : null);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var tipos = await Catalogos.ListarTiposMaterialAsync();
+        var prioridades = await Catalogos.ListarPrioridadesAsync();
+        _tipos = tipos.Datos ?? [];
+        _prioridades = prioridades.Datos ?? [];
+        _errorCatalogos = tipos.Exito && prioridades.Exito ? null : "No pudimos cargar los tipos de material o las prioridades. Recarga la página.";
+    }
+
+    private static Prioridad? APrioridad(string valor) => Enum.Parse<Prioridad>(valor);
+
+    private bool Tiene(string campo) => ErrorDe(campo) is not null;
+
+    private string? ErrorDe(string campo) => _resultado?.ErrorDe(campo);
+
+    private void LimpiarErrores() => _resultado = null;
+
+    private async Task CrearAsync()
+    {
+        _procesando = true;
+        _resultado = await ApiSolicitudes.CrearAsync(_formulario.ACrearSolicitud());
+        _procesando = false;
+
+        if (_resultado is { Exito: true, Datos: { } respuesta })
+        {
+            Notificaciones.Add(respuesta.Mensaje, Severity.Success);
+            Navegacion.NavigateTo($"/solicitudes/{respuesta.SolicitudId}");
+        }
+    }
+
+    private sealed class FormularioSolicitud
+    {
+        public string NombreMaterial { get; set; } = string.Empty;
+        public string Descripcion { get; set; } = string.Empty;
+        public int TipoMaterialId { get; set; }
+        public Prioridad? Prioridad { get; set; }
+        public DateTime? FechaObjetivo { get; set; }
+
+        public CrearSolicitud ACrearSolicitud() => new(
+            NombreMaterial,
+            Descripcion,
+            TipoMaterialId,
+            Prioridad ?? default,
+            FechaObjetivo is { } fecha ? DateOnly.FromDateTime(fecha) : default);
+    }
+}

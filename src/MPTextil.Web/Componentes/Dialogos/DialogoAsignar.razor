@@ -1,0 +1,33 @@
+@inherits DialogoAccionBase
+@inject ApiCatalogos Catalogos
+
+<MudDialog>
+    <DialogContent>
+        <MensajeError Mensaje="@MensajeGeneral" Class="mb-3" />
+        <MudText Typo="Typo.body2" Class="mb-3">El proveedor recibirá la solicitud y podrá aceptarla con su fecha compromiso o declinarla.</MudText>
+        <MudSelect T="int" @bind-Value="_proveedorId" @bind-Value:after="LimpiarErrores" Label="Proveedor" Variant="Variant.Outlined"
+                   Error="@Tiene("ProveedorId")" ErrorText="@ErrorDe("ProveedorId")">
+            @foreach (var proveedor in _proveedores)
+            {
+                <MudSelectItem T="int" Value="proveedor.Id">@proveedor.Nombre</MudSelectItem>
+            }
+        </MudSelect>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancelar">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="Procesando"
+                   OnClick="() => EnviarAsync(() => ApiSolicitudes.AsignarAsync(SolicitudId, _proveedorId))">Asignar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<ElementoCatalogo> _proveedores = [];
+    private int _proveedorId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var resultado = await Catalogos.ListarProveedoresAsync();
+        _proveedores = resultado.Datos ?? [];
+        MensajeLocal = resultado.Exito ? null : resultado.Mensaje;
+    }
+}

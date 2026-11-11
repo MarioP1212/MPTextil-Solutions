@@ -1,0 +1,117 @@
+@page "/solicitudes"
+@page "/solicitudes/{Filtro}"
+@inject ApiSolicitudes ApiSolicitudes
+@inject ApiCatalogos Catalogos
+@inject SesionActual Sesion
+@inject NavigationManager Navegacion
+
+<PageTitle>Solicitudes · MPTextil Solutions</PageTitle>
+
+<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="mb-4">
+    <div>
+        <MudText Typo="Typo.h4">Solicitudes</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+            @(Sesion.Usuario?.Rol == Rol.Proveedor ? $"Solicitudes asignadas a {Sesion.Usuario.Proveedor}." : "Seguimiento de los desarrollos de materiales.")
+        </MudText>
+    </div>
+    <AuthorizeView Roles="Solicitante">
+        <MudButton Href="/solicitudes/nueva" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add">Nueva solicitud</MudButton>
+    </AuthorizeView>
+</MudStack>
+
+<MensajeError Mensaje="@_error" Class="mb-4" />
+
+<MudTable T="SolicitudResumen"
+          Items="_solicitudes"
+          Filter="CoincideConBusqueda"
+          Hover="true"
+          Loading="_cargando"
+          LoadingProgressColor="Color.Primary"
+          RowClass="fila-clic"
+          OnRowClick="AbrirDetalle"
+          Breakpoint="Breakpoint.Sm"
+          RowsPerPage="10">
+    <ToolBarContent>
+        <MudSelect T="string" Value="_filtroSeleccionado" ValueChanged="CambiarFiltro" Label="Mostrar" Variant="Variant.Outlined" Dense="true" Style="max-width: 280px;">
+            <MudSelectItem T="string" Value="@string.Empty">Todas</MudSelectItem>
+            @foreach (var estado in _estados)
+            {
+                <MudSelectItem T="string" Value="@estado.Valor">@estado.Nombre</MudSelectItem>
+            }
+            <MudSelectItem T="string" Value="@ApiSolicitudes.FiltroVencidas">Vencidas</MudSelectItem>
+        </MudSelect>
+        <MudSpacer />
+        <MudTextField @bind-Value="_busqueda" Placeholder="Buscar por código, material o proveedor" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true" Clearable="true" Style="max-width: 360px;" />
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh>Código</MudTh>
+        <MudTh>Material</MudTh>
+        <MudTh>Prioridad</MudTh>
+        <MudTh>Estado</MudTh>
+        <MudTh>Proveedor</MudTh>
+        <MudTh>Fecha objetivo</MudTh>
+        <MudTh>Compromiso</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Código" Style="white-space: nowrap;"><MudText Typo="Typo.subtitle2">@context.Codigo</MudText></MudTd>
+        <MudTd DataLabel="Material">
+            <MudText Typo="Typo.body2">@context.NombreMaterial</MudText>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.TipoMaterial · @context.Solicitante</MudText>
+        </MudTd>
+        <MudTd DataLabel="Prioridad"><ChipPrioridad Prioridad="context.Prioridad" Nombre="@context.PrioridadNombre" /></MudTd>
+        <MudTd DataLabel="Estado"><ChipEstado Estado="context.Estado" Nombre="@context.EstadoNombre" Vencida="context.EstaVencida" /></MudTd>
+        <MudTd DataLabel="Proveedor">@(context.Proveedor ?? "Sin asignar")</MudTd>
+        <MudTd DataLabel="Fecha objetivo">@Formato.Fecha(context.FechaObjetivo)</MudTd>
+        <MudTd DataLabel="Compromiso">@Formato.Fecha(context.FechaCompromiso)</MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Class="pa-4">No hay solicitudes para mostrar con este filtro.</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager RowsPerPageString="Filas por página:" InfoFormat="{first_item}-{last_item} de {all_items}" />
+    </PagerContent>
+</MudTable>
+
+@code {
+    [Parameter] public string? Filtro { get; set; }
+
+    private List<SolicitudResumen> _solicitudes = [];
+    private List<OpcionCatalogo> _estados = [];
+    private string _filtroSeleccionado = string.Empty;
+    private string _busqueda = string.Empty;
+    private string? _error;
+    private bool _cargando = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var estados = await Catalogos.ListarEstadosAsync();
+        _estados = estados.Datos ?? [];
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _cargando = true;
+        _filtroSeleccionado = Filtro ?? string.Empty;
+        var resultado = await ApiSolicitudes.ListarAsync(Filtro);
+        _solicitudes = resultado.Datos ?? [];
+        _error = resultado.Exito ? null : resultado.Mensaje;
+        _cargando = false;
+    }
+
+    private void CambiarFiltro(string filtro) =>
+        Navegacion.NavigateTo(string.IsNullOrEmpty(filtro) ? "/solicitudes" : $"/solicitudes/{filtro}");
+
+    private void AbrirDetalle(TableRowClickEventArgs<SolicitudResumen> fila)
+    {
+        if (fila.Item is { } solicitud)
+        {
+            Navegacion.NavigateTo($"/solicitudes/{solicitud.Id}");
+        }
+    }
+
+    private bool CoincideConBusqueda(SolicitudResumen solicitud) =>
+        string.IsNullOrWhiteSpace(_busqueda)
+        || solicitud.Codigo.Contains(_busqueda, StringComparison.OrdinalIgnoreCase)
+        || solicitud.NombreMaterial.Contains(_busqueda, StringComparison.OrdinalIgnoreCase)
+        || (solicitud.Proveedor?.Contains(_busqueda, StringComparison.OrdinalIgnoreCase) ?? false);
+}

@@ -1,0 +1,114 @@
+@inherits DialogoAccionBase
+
+<MudDialog>
+    <DialogContent>
+        <MensajeError Mensaje="@MensajeGeneral" Class="mb-3" />
+        <MudStack Spacing="3">
+            <MudSelect T="ResultadoEvaluacion?" @bind-Value="_resultado" @bind-Value:after="LimpiarErrores" Label="Resultado" Variant="Variant.Outlined"
+                       Error="@Tiene("Resultado")" ErrorText="@ErrorDe("Resultado")">
+                <MudSelectItem T="ResultadoEvaluacion?" Value="ResultadoEvaluacion.Cumple">Cumple</MudSelectItem>
+                <MudSelectItem T="ResultadoEvaluacion?" Value="ResultadoEvaluacion.CumpleConObservaciones">Cumple con observaciones</MudSelectItem>
+                <MudSelectItem T="ResultadoEvaluacion?" Value="ResultadoEvaluacion.NoCumple">No cumple</MudSelectItem>
+            </MudSelect>
+            <MudTextField @bind-Value="_comentarios" @bind-Value:after="LimpiarErrores" Label="Comentarios" Variant="Variant.Outlined" Lines="3" Counter="1000" MaxLength="1000"
+                          Error="@Tiene("Comentarios")" ErrorText="@ErrorDe("Comentarios")" />
+
+            <div>
+                <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="SeleccionarFotosAsync" Accept=".jpg,.jpeg,.png,.webp" MaximumFileCount="MaximoFotos">
+                    <CustomContent>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AddPhotoAlternate"
+                                   OnClick="@context.OpenFilePickerAsync">Elegir fotos</MudButton>
+                    </CustomContent>
+                </MudFileUpload>
+                <MudText Typo="Typo.caption" Color="@(Tiene("Fotos") ? Color.Error : Color.Default)">
+                    @(ErrorDe("Fotos") ?? $"De 1 a {MaximoFotos} fotos JPG, PNG o WEBP de hasta 5 MB cada una.")
+                </MudText>
+            </div>
+
+            @if (_fotos.Count > 0)
+            {
+                <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2">
+                    @foreach (var foto in _fotos)
+                    {
+                        <MudPaper Outlined="true" Class="pa-2" Style="width: 140px;">
+                            @if (foto.Miniatura is not null)
+                            {
+                                <MudImage Src="@foto.Miniatura" Width="124" Height="93" ObjectFit="ObjectFit.Cover" Class="foto-muestra" />
+                            }
+                            else
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.BrokenImage" Color="Color.Secondary" />
+                            }
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@Formato.Tamano(foto.Archivo.Size)</MudText>
+                        </MudPaper>
+                    }
+                </MudStack>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancelar">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="Procesando" OnClick="ConfirmarAsync">
+            @(Procesando ? "Subiendo fotos…" : "Registrar evaluación")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private const int MaximoFotos = 5;
+    private const int AnchoMiniatura = 248;
+    private const int AltoMiniatura = 186;
+
+    private ResultadoEvaluacion? _resultado;
+    private string _comentarios = string.Empty;
+    private List<FotoSeleccionada> _fotos = [];
+
+    private async Task SeleccionarFotosAsync(IReadOnlyList<IBrowserFile>? archivos)
+    {
+        LimpiarErrores();
+        var seleccion = new List<FotoSeleccionada>();
+
+        foreach (var archivo in archivos ?? [])
+        {
+            seleccion.Add(new FotoSeleccionada(archivo, await CrearMiniaturaAsync(archivo)));
+        }
+
+        _fotos = seleccion;
+    }
+
+    private static async Task<string?> CrearMiniaturaAsync(IBrowserFile archivo)
+    {
+        try
+        {
+            var miniatura = await archivo.RequestImageFileAsync("image/png", AnchoMiniatura, AltoMiniatura);
+            await using var lectura = miniatura.OpenReadStream(ApiSolicitudes.TamanoMaximoFoto);
+            using var memoria = new MemoryStream();
+            await lectura.CopyToAsync(memoria);
+
+            return $"data:image/png;base64,{Convert.ToBase64String(memoria.ToArray())}";
+        }
+        catch (Exception excepcion) when (excepcion is JSException or IOException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    private Task ConfirmarAsync()
+    {
+        var muyGrande = _fotos.FirstOrDefault(foto => foto.Archivo.Size > ApiSolicitudes.TamanoMaximoFoto);
+
+        if (muyGrande is not null)
+        {
+            MensajeLocal = $"La foto {muyGrande.Archivo.Name} pesa más de 5 MB. Elige una más liviana.";
+            return Task.CompletedTask;
+        }
+
+        return EnviarAsync(() => ApiSolicitudes.RegistrarEvaluacionAsync(
+            SolicitudId,
+            _resultado,
+            _comentarios,
+            _fotos.Select(foto => foto.Archivo).ToList()));
+    }
+
+    private sealed record FotoSeleccionada(IBrowserFile Archivo, string? Miniatura);
+}

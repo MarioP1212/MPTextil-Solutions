@@ -1,0 +1,10 @@
+<div class="@Class">
+    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Etiqueta</MudText>
+    <MudText Typo="Typo.body1">@ChildContent</MudText>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Etiqueta { get; set; } = string.Empty;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+}

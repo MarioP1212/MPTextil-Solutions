@@ -1,0 +1,8 @@
+<MudNavMenu Class="pt-4">
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Insights">Indicadores</MudNavLink>
+    <MudNavLink Href="/solicitudes" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.ListAlt">Solicitudes</MudNavLink>
+    <MudNavLink Href="/solicitudes/vencidas" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.EventBusy">Vencidas</MudNavLink>
+    <AuthorizeView Roles="Solicitante">
+        <MudNavLink Href="/solicitudes/nueva" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.AddCircleOutline">Nueva solicitud</MudNavLink>
+    </AuthorizeView>
+</MudNavMenu>

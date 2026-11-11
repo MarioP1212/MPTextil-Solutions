@@ -1,0 +1,28 @@
+@inherits DialogoAccionBase
+
+<MudDialog>
+    <DialogContent>
+        <MensajeError Mensaje="@MensajeGeneral" Class="mb-3" />
+        <MudText Typo="Typo.body2" Class="mb-3">@Ayuda</MudText>
+        <MudTextField @bind-Value="_motivo" @bind-Value:after="LimpiarErrores" Label="Motivo" Variant="Variant.Outlined" Lines="3" Counter="500" MaxLength="500"
+                      Error="@Tiene("Motivo")" ErrorText="@ErrorDe("Motivo")" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancelar">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="Procesando" OnClick="ConfirmarAsync">@Apariencia.EtiquetaDe(Accion)</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public AccionSolicitud Accion { get; set; }
+
+    private string _motivo = string.Empty;
+
+    private string Ayuda => Accion == AccionSolicitud.Declinar
+        ? "La solicitud regresará al coordinador para que la asigne a otro proveedor."
+        : "La solicitud regresará al proveedor para que trabaje una nueva muestra. Explica qué debe corregir.";
+
+    private Task ConfirmarAsync() => EnviarAsync(() => Accion == AccionSolicitud.Declinar
+        ? ApiSolicitudes.DeclinarAsync(SolicitudId, _motivo)
+        : ApiSolicitudes.RechazarAsync(SolicitudId, _motivo));
+}

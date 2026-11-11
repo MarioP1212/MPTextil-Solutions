@@ -1,0 +1,250 @@
+@page "/solicitudes/{Id:int}"
+@inject ApiSolicitudes ApiSolicitudes
+@inject IDialogService Dialogos
+@inject ISnackbar Notificaciones
+@inject NavigationManager Navegacion
+
+<PageTitle>@(_solicitud?.Codigo ?? "Solicitud") · MPTextil Solutions</PageTitle>
+
+<MudButton Href="/solicitudes" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2">Volver a solicitudes</MudButton>
+
+@if (_cargando)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else if (_solicitud is null)
+{
+    <MensajeError Mensaje="@_error" />
+}
+else
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="2">
+        <MudText Typo="Typo.h4">@_solicitud.Codigo</MudText>
+        <ChipEstado Estado="_solicitud.Estado" Nombre="@_solicitud.EstadoNombre" Vencida="_solicitud.EstaVencida" />
+        <ChipPrioridad Prioridad="_solicitud.Prioridad" Nombre="@($"Prioridad {_solicitud.PrioridadNombre.ToLowerInvariant()}")" />
+    </MudStack>
+    <MudText Typo="Typo.h6" Class="mb-4">@_solicitud.NombreMaterial</MudText>
+
+    @if (_solicitud.RequiereNuevaFechaCompromiso)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-4">La muestra fue rechazada y su fecha compromiso ya pasó. El proveedor debe registrar una nueva fecha antes de reenviar.</MudAlert>
+    }
+    else if (_solicitud.EstaVencida)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">La fecha compromiso del @Formato.Fecha(_solicitud.FechaCompromiso) ya pasó y no se ha registrado el envío.</MudAlert>
+    }
+
+    @if (Acciones.Count > 0)
+    {
+        <MudPaper Class="pa-4 mb-4" Outlined="true">
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Lo que puedes hacer ahora</MudText>
+            <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2">
+                @foreach (var accion in Acciones)
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="Apariencia.ColorDe(accion)"
+                               StartIcon="@Apariencia.IconoDe(accion)"
+                               Disabled="_procesando"
+                               OnClick="() => EjecutarAsync(accion)">@Apariencia.EtiquetaDe(accion)</MudButton>
+                }
+            </MudStack>
+        </MudPaper>
+    }
+
+    <MudGrid>
+        <MudItem xs="12" md="8">
+            <MudPaper Class="pa-4 mb-4">
+                <MudText Typo="Typo.h6" Class="mb-3">Datos de la solicitud</MudText>
+                <MudGrid Spacing="2">
+                    <MudItem xs="6" sm="4"><DatoEtiquetado Etiqueta="Tipo de material">@_solicitud.TipoMaterial</DatoEtiquetado></MudItem>
+                    <MudItem xs="6" sm="4"><DatoEtiquetado Etiqueta="Solicitante">@_solicitud.Solicitante</DatoEtiquetado></MudItem>
+                    <MudItem xs="6" sm="4"><DatoEtiquetado Etiqueta="Proveedor">@(_solicitud.Proveedor ?? "Sin asignar")</DatoEtiquetado></MudItem>
+                    <MudItem xs="6" sm="4"><DatoEtiquetado Etiqueta="Fecha objetivo">@Formato.Fecha(_solicitud.FechaObjetivo)</DatoEtiquetado></MudItem>
+                    <MudItem xs="6" sm="4"><DatoEtiquetado Etiqueta="Fecha compromiso vigente">@Formato.Fecha(_solicitud.FechaCompromiso)</DatoEtiquetado></MudItem>
+                    <MudItem xs="6" sm="4"><DatoEtiquetado Etiqueta="Creada">@Formato.FechaHora(_solicitud.FechaCreacion)</DatoEtiquetado></MudItem>
+                    <MudItem xs="12"><DatoEtiquetado Etiqueta="Descripción">@_solicitud.Descripcion</DatoEtiquetado></MudItem>
+                </MudGrid>
+            </MudPaper>
+
+            <MudText Typo="Typo.h6" Class="mb-2">Entregas</MudText>
+            @if (_solicitud.Entregas.Count == 0)
+            {
+                <MudPaper Class="pa-4 mb-4"><MudText Class="mud-text-secondary">El proveedor todavía no ha aceptado la solicitud.</MudText></MudPaper>
+            }
+            @foreach (var (entrega, numero) in _solicitud.Entregas.Select((entrega, indice) => (entrega, indice + 1)))
+            {
+                <MudPaper Class="pa-4 mb-4">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                        <MudText Typo="Typo.subtitle1"><b>Entrega @numero</b> · compromiso @Formato.Fecha(entrega.FechaCompromiso)</MudText>
+                        <MudChip T="string" Color="Apariencia.ColorDe(entrega.Estado)" Size="Size.Small">@entrega.EstadoNombre</MudChip>
+                    </MudStack>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Registrada por @entrega.RegistradoPor el @Formato.FechaHora(entrega.FechaRegistro)</MudText>
+
+                    @if (entrega.Envio is { } envio)
+                    {
+                        <MudDivider Class="my-3" />
+                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                            <MudIcon Icon="@Icons.Material.Filled.LocalShipping" Size="Size.Small" Color="Color.Secondary" />
+                            <MudText Typo="Typo.body2">Enviada el @Formato.Fecha(envio.FechaEnvio) con @envio.Transportista, guía <b>@envio.NumeroGuia</b> (registró @envio.RegistradoPor)</MudText>
+                        </MudStack>
+
+                        @if (envio.Evaluacion is { } evaluacion)
+                        {
+                            <MudDivider Class="my-3" />
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-1">
+                                <MudIcon Icon="@Icons.Material.Filled.FactCheck" Size="Size.Small" Color="Color.Secondary" />
+                                <MudText Typo="Typo.body2">Evaluación de @evaluacion.EvaluadoPor el @Formato.FechaHora(evaluacion.FechaEvaluacion)</MudText>
+                                <MudChip T="string" Color="Apariencia.ColorDe(evaluacion.Resultado)" Size="Size.Small" Variant="Variant.Outlined">@evaluacion.ResultadoNombre</MudChip>
+                            </MudStack>
+                            <MudText Typo="Typo.body2" Class="mb-3">@evaluacion.Comentarios</MudText>
+                            <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2">
+                                @foreach (var foto in evaluacion.Fotos)
+                                {
+                                    <a href="@foto.Url" target="_blank" rel="noopener" title="@($"{foto.NombreOriginal} · {Formato.Tamano(foto.TamanoBytes)}")">
+                                        <MudImage Src="@foto.Url" Alt="@foto.NombreOriginal" Width="180" Height="135" ObjectFit="ObjectFit.Cover" Class="foto-muestra" />
+                                    </a>
+                                }
+                            </MudStack>
+
+                            @foreach (var decision in evaluacion.Decisiones)
+                            {
+                                <MudAlert Severity="@(decision.Aprobada ? Severity.Success : Severity.Error)" Dense="true" Variant="Variant.Text" Class="mt-3">
+                                    <b>@decision.NivelNombre:</b> @(decision.Aprobada ? "aprobada" : "rechazada") por @decision.Usuario el @Formato.FechaHora(decision.Fecha)@(decision.Motivo is null ? "." : $". Motivo: {decision.Motivo}")
+                                </MudAlert>
+                            }
+                        }
+                    }
+                </MudPaper>
+            }
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-2">Historial</MudText>
+                <MudTimeline TimelinePosition="TimelinePosition.Start">
+                    @foreach (var registro in _solicitud.Historial.Reverse())
+                    {
+                        <MudTimelineItem Color="Apariencia.ColorDe(registro.EstadoNuevo)" Size="Size.Small">
+                            <ItemContent>
+                                <MudText Typo="Typo.subtitle2">@registro.AccionNombre</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@Formato.FechaHora(registro.Fecha) · @registro.Usuario</MudText>
+                                <MudText Typo="Typo.body2">@registro.Detalle</MudText>
+                                @if (registro.EstadoAnterior != registro.EstadoNuevo)
+                                {
+                                    <MudText Typo="Typo.caption">@(registro.EstadoAnteriorNombre is null ? string.Empty : $"{registro.EstadoAnteriorNombre} → ")@registro.EstadoNuevoNombre</MudText>
+                                }
+                            </ItemContent>
+                        </MudTimelineItem>
+                    }
+                </MudTimeline>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private static readonly DialogOptions OpcionesDialogo = new()
+    {
+        MaxWidth = MaxWidth.Small,
+        FullWidth = true,
+        CloseOnEscapeKey = true,
+        BackdropClick = false
+    };
+
+    [Parameter] public int Id { get; set; }
+
+    private SolicitudDetalle? _solicitud;
+    private string? _error;
+    private bool _cargando = true;
+    private bool _procesando;
+
+    private IReadOnlyList<AccionSolicitud> Acciones => _solicitud?.AccionesDisponibles ?? [];
+
+    protected override Task OnParametersSetAsync() => CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        var resultado = await ApiSolicitudes.ObtenerAsync(Id);
+        _solicitud = resultado.Datos;
+        _error = resultado.Exito ? null : resultado.Mensaje;
+        _cargando = false;
+    }
+
+    private async Task EjecutarAsync(AccionSolicitud accion)
+    {
+        _procesando = true;
+
+        var respuesta = accion switch
+        {
+            AccionSolicitud.Asignar => await AbrirDialogoAsync<DialogoAsignar>(
+                "Asignar proveedor",
+                new DialogParameters<DialogoAsignar> { { dialogo => dialogo.SolicitudId, Id } }),
+            AccionSolicitud.Declinar or AccionSolicitud.Rechazar => await AbrirDialogoAsync<DialogoMotivo>(
+                Apariencia.EtiquetaDe(accion),
+                new DialogParameters<DialogoMotivo> { { dialogo => dialogo.SolicitudId, Id }, { dialogo => dialogo.Accion, accion } }),
+            AccionSolicitud.Aceptar or AccionSolicitud.CambiarFechaCompromiso => await AbrirDialogoAsync<DialogoFecha>(
+                Apariencia.EtiquetaDe(accion),
+                new DialogParameters<DialogoFecha> { { dialogo => dialogo.SolicitudId, Id }, { dialogo => dialogo.Accion, accion } }),
+            AccionSolicitud.RegistrarEnvio => await AbrirDialogoAsync<DialogoEnvio>(
+                "Registrar envío de la muestra",
+                new DialogParameters<DialogoEnvio> { { dialogo => dialogo.SolicitudId, Id } }),
+            AccionSolicitud.RegistrarEvaluacion => await AbrirDialogoAsync<DialogoEvaluacion>(
+                "Registrar evaluación de la muestra",
+                new DialogParameters<DialogoEvaluacion> { { dialogo => dialogo.SolicitudId, Id } }),
+            AccionSolicitud.Aprobar => await ConfirmarAsync(
+                "Aprobar muestra",
+                "Al aprobar, la solicitud pasa al autorizador para el visto bueno final.",
+                () => ApiSolicitudes.AprobarAsync(Id)),
+            AccionSolicitud.Autorizar => await ConfirmarAsync(
+                "Autorizar muestra",
+                "Al autorizar, la solicitud queda aprobada y cerrada.",
+                () => ApiSolicitudes.AutorizarAsync(Id)),
+            _ => null
+        };
+
+        _procesando = false;
+
+        if (respuesta is null)
+        {
+            return;
+        }
+
+        Notificaciones.Add(respuesta.Mensaje, Severity.Success);
+
+        if (accion == AccionSolicitud.Declinar)
+        {
+            Navegacion.NavigateTo("/solicitudes");
+            return;
+        }
+
+        await CargarAsync();
+    }
+
+    private async Task<RespuestaAccion?> AbrirDialogoAsync<TDialogo>(string titulo, DialogParameters<TDialogo> parametros)
+        where TDialogo : IComponent
+    {
+        var dialogo = await Dialogos.ShowAsync<TDialogo>(titulo, parametros, OpcionesDialogo);
+        var resultado = await dialogo.Result;
+
+        return resultado is { Canceled: false, Data: RespuestaAccion respuesta } ? respuesta : null;
+    }
+
+    private async Task<RespuestaAccion?> ConfirmarAsync(string titulo, string mensaje, Func<Task<ResultadoApi<RespuestaAccion>>> accion)
+    {
+        var confirmado = await Dialogos.ShowMessageBoxAsync(titulo, mensaje, yesText: titulo, cancelText: "Cancelar");
+
+        if (confirmado != true)
+        {
+            return null;
+        }
+
+        var resultado = await accion();
+
+        if (!resultado.Exito)
+        {
+            Notificaciones.Add(resultado.Mensaje, Severity.Error);
+        }
+
+        return resultado.Datos;
+    }
+}

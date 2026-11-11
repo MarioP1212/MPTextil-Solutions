@@ -1,0 +1,6 @@
+<MudChip T="string" Color="Apariencia.ColorDe(Prioridad)" Size="Size.Small" Variant="Variant.Outlined">@Nombre</MudChip>
+
+@code {
+    [Parameter, EditorRequired] public Prioridad Prioridad { get; set; }
+    [Parameter, EditorRequired] public string Nombre { get; set; } = string.Empty;
+}

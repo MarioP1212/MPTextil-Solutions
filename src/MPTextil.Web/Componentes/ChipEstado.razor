@@ -1,0 +1,11 @@
+<MudChip T="string" Color="Apariencia.ColorDe(Estado)" Icon="@Apariencia.IconoDe(Estado)" Size="Size.Small" Variant="Variant.Filled">@Nombre</MudChip>
+@if (Vencida)
+{
+    <MudChip T="string" Color="Color.Error" Icon="@Icons.Material.Filled.EventBusy" Size="Size.Small" Variant="Variant.Outlined">Vencida</MudChip>
+}
+
+@code {
+    [Parameter, EditorRequired] public EstadoSolicitud Estado { get; set; }
+    [Parameter, EditorRequired] public string Nombre { get; set; } = string.Empty;
+    [Parameter] public bool Vencida { get; set; }
+}

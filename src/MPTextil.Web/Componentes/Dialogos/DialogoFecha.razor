@@ -1,0 +1,30 @@
+@inherits DialogoAccionBase
+
+<MudDialog>
+    <DialogContent>
+        <MensajeError Mensaje="@MensajeGeneral" Class="mb-3" />
+        <MudText Typo="Typo.body2" Class="mb-3">@Ayuda</MudText>
+        <MudDatePicker @bind-Date="_fecha" @bind-Date:after="LimpiarErrores" Label="Fecha compromiso" MinDate="DateTime.Today" DateFormat="dd/MM/yyyy" Variant="Variant.Outlined"
+                       Error="@Tiene("FechaCompromiso")" ErrorText="@ErrorDe("FechaCompromiso")" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancelar">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="Procesando" OnClick="ConfirmarAsync">@Apariencia.EtiquetaDe(Accion)</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public AccionSolicitud Accion { get; set; }
+
+    private DateTime? _fecha;
+
+    private string Ayuda => Accion == AccionSolicitud.Aceptar
+        ? "Indica la fecha en la que te comprometes a enviar la muestra. Si pasa sin envío, la solicitud se marca como vencida."
+        : "Registra la nueva fecha compromiso. La fecha anterior queda guardada en el histórico.";
+
+    private DateOnly FechaElegida => _fecha is { } fecha ? DateOnly.FromDateTime(fecha) : default;
+
+    private Task ConfirmarAsync() => EnviarAsync(() => Accion == AccionSolicitud.Aceptar
+        ? ApiSolicitudes.AceptarAsync(SolicitudId, FechaElegida)
+        : ApiSolicitudes.CambiarFechaCompromisoAsync(SolicitudId, FechaElegida));
+}

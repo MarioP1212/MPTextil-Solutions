@@ -1,0 +1,32 @@
+@inherits DialogoAccionBase
+
+<MudDialog>
+    <DialogContent>
+        <MensajeError Mensaje="@MensajeGeneral" Class="mb-3" />
+        <MudStack Spacing="3">
+            <MudDatePicker @bind-Date="_fechaEnvio" @bind-Date:after="LimpiarErrores" Label="Fecha de envío" MaxDate="DateTime.Today" DateFormat="dd/MM/yyyy" Variant="Variant.Outlined"
+                           Error="@Tiene("FechaEnvio")" ErrorText="@ErrorDe("FechaEnvio")" />
+            <MudTextField @bind-Value="_transportista" @bind-Value:after="LimpiarErrores" Label="Transportista" Placeholder="Ejemplo: DHL" Variant="Variant.Outlined" MaxLength="100"
+                          Error="@Tiene("Transportista")" ErrorText="@ErrorDe("Transportista")" />
+            <MudTextField @bind-Value="_numeroGuia" @bind-Value:after="LimpiarErrores" Label="Número de guía" Variant="Variant.Outlined" MaxLength="50"
+                          Error="@Tiene("NumeroGuia")" ErrorText="@ErrorDe("NumeroGuia")" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancelar">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="Procesando" OnClick="ConfirmarAsync">Registrar envío</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private DateTime? _fechaEnvio = DateTime.Today;
+    private string _transportista = string.Empty;
+    private string _numeroGuia = string.Empty;
+
+    private Task ConfirmarAsync() => EnviarAsync(() => ApiSolicitudes.RegistrarEnvioAsync(
+        SolicitudId,
+        new RegistrarEnvioSolicitud(
+            _fechaEnvio is { } fecha ? DateOnly.FromDateTime(fecha) : default,
+            _transportista,
+            _numeroGuia)));
+}

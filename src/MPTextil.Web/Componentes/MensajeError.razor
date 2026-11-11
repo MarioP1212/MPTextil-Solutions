@@ -1,0 +1,9 @@
+@if (!string.IsNullOrWhiteSpace(Mensaje))
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Text" Dense="true" Class="@Class">@Mensaje</MudAlert>
+}
+
+@code {
+    [Parameter] public string? Mensaje { get; set; }
+    [Parameter] public string? Class { get; set; }
+}

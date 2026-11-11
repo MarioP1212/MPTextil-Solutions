@@ -1,0 +1,129 @@
+@page "/"
+@inject ApiIndicadores Indicadores
+@inject SesionActual Sesion
+@inject NavigationManager Navegacion
+
+<PageTitle>Indicadores · MPTextil Solutions</PageTitle>
+
+<MudText Typo="Typo.h4">Indicadores</MudText>
+<MudText Typo="Typo.body2" Class="mb-6 mud-text-secondary">
+    @(Sesion.Usuario?.Rol == Rol.Proveedor ? $"Solo se muestran las solicitudes de {Sesion.Usuario.Proveedor}." : "Resumen de todas las solicitudes de desarrollo.")
+    @if (_resumen is not null)
+    {
+        <span> Corte al @Formato.Fecha(_resumen.Fecha).</span>
+    }
+</MudText>
+
+@if (_cargando)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else if (_resumen is null)
+{
+    <MensajeError Mensaje="@_error" />
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="3">
+            <TarjetaIndicador Titulo="Solicitudes" Valor="@_resumen.TotalSolicitudes.ToString()" Icono="@Icons.Material.Filled.ListAlt" Color="Color.Primary" Href="/solicitudes" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <TarjetaIndicador Titulo="Vencidas" Valor="@_resumen.SolicitudesVencidas.ToString()" Icono="@Icons.Material.Filled.EventBusy" Color="@(_resumen.SolicitudesVencidas > 0 ? Color.Error : Color.Success)" Href="/solicitudes/vencidas" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <TarjetaIndicador Titulo="En curso" Valor="@EnCurso.ToString()" Icono="@Icons.Material.Filled.Autorenew" Color="Color.Info" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <TarjetaIndicador Titulo="Entregas a tiempo" Valor="@Formato.Porcentaje(_resumen.PorcentajeATiempoGeneral)" Icono="@Icons.Material.Filled.LocalShipping" Color="@Apariencia.ColorDePorcentaje(_resumen.PorcentajeATiempoGeneral)" />
+        </MudItem>
+
+        <MudItem xs="12" md="5">
+            <MudPaper Class="pa-4" Style="height: 100%;">
+                <MudText Typo="Typo.h6" Class="mb-4">Solicitudes por estado</MudText>
+                <MudStack Spacing="3">
+                    @foreach (var conteo in _resumen.SolicitudesPorEstado)
+                    {
+                        <div class="fila-clic" @onclick="() => VerSolicitudes(conteo.Estado)">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                    <MudIcon Icon="@Apariencia.IconoDe(conteo.Estado)" Color="Apariencia.ColorDe(conteo.Estado)" Size="Size.Small" />
+                                    <MudText Typo="Typo.body2">@conteo.EstadoNombre</MudText>
+                                </MudStack>
+                                <MudText Typo="Typo.subtitle2">@conteo.Cantidad</MudText>
+                            </MudStack>
+                            <MudProgressLinear Value="@ProporcionDe(conteo.Cantidad)" Color="Apariencia.ColorDe(conteo.Estado)" Rounded="true" Class="mt-1" />
+                        </div>
+                    }
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="7">
+            <MudPaper Class="pa-4" Style="height: 100%;">
+                <MudText Typo="Typo.h6">Entregas a tiempo por proveedor</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    Entregas a tiempo entre el total de entregas a tiempo, entregas tarde y compromisos vencidos sin envío.
+                </MudText>
+                <MudSimpleTable Dense="true" Hover="true" Class="mt-3">
+                    <thead>
+                        <tr>
+                            <th>Proveedor</th>
+                            <th style="text-align: center;">A tiempo</th>
+                            <th style="text-align: center;">Tarde</th>
+                            <th style="text-align: center;">Vencidos</th>
+                            <th style="min-width: 160px;">Cumplimiento</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var proveedor in _resumen.CumplimientoPorProveedor)
+                        {
+                            <tr>
+                                <td>@proveedor.Proveedor</td>
+                                <td style="text-align: center;">@proveedor.EntregasATiempo</td>
+                                <td style="text-align: center;">@proveedor.EntregasTarde</td>
+                                <td style="text-align: center;">@proveedor.VencidosSinEnvio</td>
+                                <td>
+                                    <MudText Typo="Typo.body2">@Formato.Porcentaje(proveedor.PorcentajeATiempo)</MudText>
+                                    <MudProgressLinear Value="@((double)(proveedor.PorcentajeATiempo ?? 0))" Color="@Apariencia.ColorDePorcentaje(proveedor.PorcentajeATiempo)" Rounded="true" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private static readonly EstadoSolicitud[] EstadosEnCurso =
+    [
+        EstadoSolicitud.Asignado,
+        EstadoSolicitud.EnProgreso,
+        EstadoSolicitud.Enviado,
+        EstadoSolicitud.EnEvaluacion,
+        EstadoSolicitud.PendienteAutorizacion
+    ];
+
+    private ResumenIndicadores? _resumen;
+    private string? _error;
+    private bool _cargando = true;
+
+    private int EnCurso => _resumen?.SolicitudesPorEstado
+        .Where(conteo => EstadosEnCurso.Contains(conteo.Estado))
+        .Sum(conteo => conteo.Cantidad) ?? 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var resultado = await Indicadores.ObtenerAsync();
+        _resumen = resultado.Datos;
+        _error = resultado.Exito ? null : resultado.Mensaje;
+        _cargando = false;
+    }
+
+    private void VerSolicitudes(EstadoSolicitud estado) => Navegacion.NavigateTo($"/solicitudes/{estado}");
+
+    private double ProporcionDe(int cantidad) =>
+        _resumen is { TotalSolicitudes: > 0 } resumen ? 100d * cantidad / resumen.TotalSolicitudes : 0;
+}

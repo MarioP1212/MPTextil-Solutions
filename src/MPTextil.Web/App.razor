@@ -1,0 +1,25 @@
+<MudThemeProvider Theme="Tema.MPTextil" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<Router AppAssembly="typeof(App).Assembly" NotFoundPage="typeof(Pages.NoEncontrada)">
+    <Found Context="datosRuta">
+        <AuthorizeRouteView RouteData="datosRuta" DefaultLayout="typeof(MainLayout)">
+            <NotAuthorized>
+                @if (context.User.Identity?.IsAuthenticated == true)
+                {
+                    <SinPermiso />
+                }
+                else
+                {
+                    <RedirigirAInicioSesion />
+                }
+            </NotAuthorized>
+            <Authorizing>
+                <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+            </Authorizing>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="datosRuta" Selector="h1" />
+    </Found>
+</Router>

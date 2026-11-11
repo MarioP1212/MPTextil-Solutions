@@ -1,0 +1,29 @@
+@inject NavigationManager Navegacion
+
+<MudPaper Class="@($"pa-4 {(Href is null ? string.Empty : "fila-clic")}")" @onclick="Navegar">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+        <MudAvatar Color="Color" Variant="Variant.Outlined">
+            <MudIcon Icon="@Icono" />
+        </MudAvatar>
+        <div>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">@Titulo</MudText>
+            <MudText Typo="Typo.h5">@Valor</MudText>
+        </div>
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public string Titulo { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Valor { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Icono { get; set; } = string.Empty;
+    [Parameter] public Color Color { get; set; } = Color.Primary;
+    [Parameter] public string? Href { get; set; }
+
+    private void Navegar()
+    {
+        if (Href is not null)
+        {
+            Navegacion.NavigateTo(Href);
+        }
+    }
+}

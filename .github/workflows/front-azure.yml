@@ -1,0 +1,46 @@
+name: Front en Azure Static Web Apps
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/MPTextil.Web/**"
+      - "Directory.Build.props"
+      - "Directory.Packages.props"
+      - "global.json"
+      - "nuget.config"
+      - ".github/workflows/front-azure.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: front-azure
+  cancel-in-progress: true
+
+jobs:
+  desplegar:
+    name: Compilar y publicar el front
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obtener el código
+        uses: actions/checkout@v5
+
+      - name: Instalar el SDK de .NET de global.json
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Publicar MPTextil.Web
+        run: dotnet publish src/MPTextil.Web/MPTextil.Web.csproj -c Release -o publicacion
+
+      - name: Subir a Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: publicacion/wwwroot
+          output_location: ""
+          skip_app_build: true
+          skip_api_build: true

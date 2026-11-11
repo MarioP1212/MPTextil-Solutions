@@ -1,0 +1,98 @@
+@page "/iniciar-sesion"
+@layout LayoutSimple
+@attribute [AllowAnonymous]
+@inject ApiAutenticacion Autenticacion
+@inject SesionActual Sesion
+@inject NavigationManager Navegacion
+
+<PageTitle>Iniciar sesión · MPTextil Solutions</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="d-flex align-center" Style="min-height: 100vh;">
+    <MudPaper Elevation="3" Class="pa-8" Style="width: 100%;">
+        <MudStack AlignItems="AlignItems.Center" Spacing="1" Class="mb-6">
+            <MudIcon Icon="@Icons.Material.Filled.Texture" Color="Color.Primary" Size="Size.Large" />
+            <MudText Typo="Typo.h5">MPTextil Solutions</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">Portal de desarrollo de materiales</MudText>
+        </MudStack>
+
+        @if (_aviso is not null)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4">@_aviso</MudAlert>
+        }
+
+        <MensajeError Mensaje="@MensajeGeneral" Class="mb-4" />
+
+        <EditForm Model="_formulario" OnSubmit="IniciarSesionAsync">
+            <MudStack Spacing="4">
+                <MudTextField @bind-Value="_formulario.Correo" @bind-Value:after="LimpiarErrores"
+                              Label="Correo"
+                              InputType="InputType.Email"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Email"
+                              Error="@(_resultado?.ErrorDe("Correo") is not null)"
+                              ErrorText="@_resultado?.ErrorDe("Correo")" />
+                <MudTextField @bind-Value="_formulario.Contrasena" @bind-Value:after="LimpiarErrores"
+                              Label="Contraseña"
+                              InputType="@(_verContrasena ? InputType.Text : InputType.Password)"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@(_verContrasena ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                              AdornmentAriaLabel="Mostrar u ocultar la contraseña"
+                              OnAdornmentClick="() => _verContrasena = !_verContrasena"
+                              Error="@(_resultado?.ErrorDe("Contrasena") is not null)"
+                              ErrorText="@_resultado?.ErrorDe("Contrasena")" />
+                <MudButton ButtonType="ButtonType.Submit"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="Size.Large"
+                           FullWidth="true"
+                           Disabled="_procesando">
+                    @(_procesando ? "Ingresando…" : "Iniciar sesión")
+                </MudButton>
+            </MudStack>
+        </EditForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private readonly FormularioInicioSesion _formulario = new();
+    private ResultadoApi<RespuestaInicioSesion>? _resultado;
+    private string? _aviso;
+    private bool _procesando;
+    private bool _verContrasena;
+
+    private string? MensajeGeneral => _resultado is { Exito: false, Errores.Count: 0 } resultado ? resultado.Mensaje : null;
+
+    protected override void OnInitialized()
+    {
+        if (Sesion.Usuario is not null)
+        {
+            Navegacion.NavigateTo("/", replace: true);
+            return;
+        }
+
+        _aviso = Sesion.TomarMotivoCierre();
+    }
+
+    private void LimpiarErrores() => _resultado = null;
+
+    private async Task IniciarSesionAsync()
+    {
+        _procesando = true;
+        _aviso = null;
+        _resultado = await Autenticacion.IniciarSesionAsync(_formulario.Correo, _formulario.Contrasena);
+        _procesando = false;
+
+        if (_resultado.Exito)
+        {
+            Navegacion.NavigateTo("/");
+        }
+    }
+
+    private sealed class FormularioInicioSesion
+    {
+        public string Correo { get; set; } = string.Empty;
+        public string Contrasena { get; set; } = string.Empty;
+    }
+}
